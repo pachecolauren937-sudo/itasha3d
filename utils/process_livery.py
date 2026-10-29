@@ -222,6 +222,74 @@ def paint_mask(name, image, carmask):
         # Gaussian edge smoothing can bleed a faint pixel back over an exclusion.
         for x,y,rx,ry in wheel_masks:
             cv2.ellipse(alpha,(x,y),(rx,ry),0,0,360,0,-1)
+        # Separate the photographed roof and glazing from the wrapped body.
+        # Coordinates follow the visible surface boundaries in each calibrated
+        # side photo (the broad photo envelope above is only a safety boundary).
+        def region(points):
+            m=np.zeros((h,w),np.uint8)
+            cv2.fillPoly(m,[np.asarray(points,np.int32)],255)
+            return m
+        if name == 'right':
+            roof=region([(500,108),(615,72),(758,25),(920,3),(1090,0),(1245,13),
+                         (1404,42),(1510,75),(1445,73),(1285,40),(1120,24),
+                         (958,25),(812,42),(680,83),(600,117)])
+            glass=np.maximum(
+                region([(605,101),(775,49),(938,27),(1057,35),(1101,59),
+                        (1094,161),(1002,174),(831,181),(695,174),(590,145)]),
+                region([(1090,57),(1170,37),(1328,32),(1466,62),(1567,103),
+                        (1553,145),(1481,160),(1322,169),(1171,169),(1092,160)])
+            )
+            sill_y=170
+        else:
+            roof=region([(310,76),(434,40),(566,15),(724,0),(887,1),(1048,25),
+                         (1172,61),(1240,87),(1168,78),(1040,43),(884,22),
+                         (724,20),(577,37),(452,61),(365,92)])
+            glass=np.maximum(
+                region([(386,82),(494,48),(648,29),(796,32),(861,52),
+                        (868,147),(778,160),(620,159),(485,145),(397,119)]),
+                region([(860,52),(935,34),(1034,35),(1113,57),(1182,87),
+                        (1144,125),(1056,143),(948,151),(870,146)])
+            )
+            sill_y=152
+
+        # The matte below is the existing door/fender classifier. Keep the
+        # same rule on body panels, but classify the glass with both sharpness
+        # and colour evidence. A 2.2 px Gaussian high-pass rejects smooth
+        # reflections; a 45/255 HSV saturation floor rejects bright neutral
+        # reflections and interior gradients. Pixels need >=10/255 high-pass.
+        body_print=alpha.copy()
+        roof=(roof>0)&(alpha>0)
+        alpha[roof]=0
+        glass_region=(glass>0)&(alpha>0)
+        if np.any(glass_region):
+            highpass=cv2.absdiff(image,cv2.GaussianBlur(image,(0,0),2.2))
+            response=cv2.cvtColor(highpass,cv2.COLOR_BGR2GRAY)
+            saturation=cv2.cvtColor(image,cv2.COLOR_BGR2HSV)[:,:,1]
+            printed=((response>=10)&(saturation>=45)&glass_region).astype(np.uint8)
+            # Carry the thin antialiased ink interior by at most 2 px. Then
+            # keep only components connected to printed artwork immediately
+            # below the sill, allowing a door stroke to continue onto glass.
+            printed=cv2.dilate(printed,np.ones((3,3),np.uint8))
+            count,labels=cv2.connectedComponents(printed,8)
+            sill_band=np.zeros((h,w),np.uint8)
+            y0=max(0,sill_y-12); y1=min(h,sill_y+10)
+            sill_band[y0:y1,:]=255
+            door_seeds=cv2.dilate((body_print>0).astype(np.uint8),np.ones((9,9),np.uint8))
+            seeded_labels=np.unique(labels[(glass_region)&(sill_band>0)&(door_seeds>0)])
+            seeded_labels=seeded_labels[seeded_labels!=0]
+            kept=np.isin(labels,seeded_labels).astype(np.uint8)*255 if len(seeded_labels) else printed*255
+            # Glass is transparent except the detected connected print.
+            alpha[glass_region]=0
+            alpha[glass_region & (kept>0)]=255
+        # Reassert the source structural masks after classification/AA.
+        alpha[roof]=0
+        alpha=cv2.GaussianBlur(alpha,(3,3),.55)
+        alpha[roof]=0
+        alpha[glass_region]=0
+        alpha[glass_region & (kept>0)]=255
+        print(f'{name}: roof artwork coverage=0.00%; glass printed coverage='
+              f'{100*np.count_nonzero(alpha[glass>0])/max(1,np.count_nonzero(glass)):.2f}% '
+              f'(HP>=10/255, HSV saturation>=45/255, 2.2px high-pass; seeded connected strokes)')
     rgba=cv2.cvtColor(image,cv2.COLOR_BGR2BGRA); rgba[:,:,3]=alpha
     return rgba
 
