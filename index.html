@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101114">
+  <title>痛车工坊 · 3D 涂装预览</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="痛车工坊首页"><span class="brand-mark">痛</span><span>痛车<span class="muted">工坊</span><small>LIVERY LAB / 3D PREVIEW</small></span></a>
+      <div class="top-actions"><span class="model-tag"><i></i> PORSCHE TAYCAN · 2022</span><button class="icon-button" id="resetTop" title="重置视角与涂装">↺ <span>重置</span></button></div>
+    </header>
+    <section class="workspace">
+      <div class="viewport-panel">
+        <div id="viewport" aria-label="3D 汽车预览">
+          <div class="load-state" id="loadState"><div class="spinner"></div><span>正在载入车辆模型…</span></div>
+        </div>
+        <div class="view-label"><span class="live-dot"></span> 实时预览 <span class="divider">/</span> 拖动旋转 · 滚轮缩放</div>
+        <div class="view-tools"><button id="viewFront" title="正面视角">正面</button><button id="viewSide" title="侧面视角">侧面</button><button id="viewReset" title="重置视角">⌖</button></div>
+        <div class="scale-note">DRAG TO ROTATE <span>·</span> SCROLL TO ZOOM</div>
+      </div>
+      <aside class="control-panel" id="controlPanel">
+        <div class="panel-heading"><div><div class="eyebrow">CUSTOMIZE YOUR RIDE</div><h1>涂装预览</h1></div><button id="closePanel" class="close-panel" aria-label="收起控制面板">⌄</button></div>
+        <div class="section upload-section">
+          <div class="section-title"><span class="step">01</span><div><h2>上传图案</h2><p>选择图片，开始装饰你的座驾</p></div></div>
+          <label class="upload-zone" for="imageInput"><span class="upload-icon">＋</span><strong>点击选择图片</strong><span>PNG / JPG / WEBP · 建议透明 PNG</span><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/avif"></label>
+          <div class="decal-info" id="decalInfo"><span class="file-icon">▧</span><span class="file-details"><b id="decalName">尚未选择图案</b><small id="decalDimensions">透明背景图片效果更佳</small></span><button id="removeDecal" title="移除图案" aria-label="移除图案">×</button></div>
+        </div>
+        <div class="section">
+          <div class="section-title"><span class="step">02</span><div><h2>投影位置</h2><p>选择车身表面与图案方向</p></div></div>
+          <div class="side-options" role="group" aria-label="选择投影面"><button data-side="left"><span>◧</span>左侧</button><button data-side="right" class="active"><span>◨</span>右侧</button><button data-side="hood"><span>⌃</span>引擎盖</button><button data-side="roof"><span>▱</span>车顶</button><button data-side="rear"><span>◖</span>车尾</button></div>
+        </div>
+        <div class="section adjust-section">
+          <div class="section-title"><span class="step">03</span><div><h2>调整图案</h2><p>实时控制位置、大小与角度</p></div></div>
+          <div class="slider-row"><label for="offsetX">水平位置 <small>X</small></label><output id="offsetXVal">0.00</output><input id="offsetX" type="range" min="-1.5" max="1.5" step="0.01" value="0"></div>
+          <div class="slider-row"><label for="offsetY">垂直位置 <small>Y</small></label><output id="offsetYVal">0.00</output><input id="offsetY" type="range" min="-0.7" max="0.7" step="0.01" value="0"></div>
+          <div class="slider-row"><label for="offsetZ">投影深度 <small>Z</small></label><output id="offsetZVal">0.00</output><input id="offsetZ" type="range" min="-0.3" max="0.3" step="0.005" value="0"></div>
+          <div class="slider-row"><label for="decalScale">图案大小</label><output id="decalScaleVal">1.00×</output><input id="decalScale" type="range" min="0.15" max="1.6" step="0.01" value="1.0"></div>
+          <div class="slider-row"><label for="decalRotation">旋转角度</label><output id="decalRotationVal">0°</output><input id="decalRotation" type="range" min="-180" max="180" step="1" value="0"></div>
+        </div>
+        <div class="panel-footer"><div class="hint"><span>✦</span><p>Porsche Taycan 2022 款 · 拖拽滑块调整图案位置与大小</p></div><div class="footer-actions"><button class="reset-button" id="resetAll">↺ 重置</button><button class="export-button" id="exportBtn"><span>↓</span> 导出截图 <small>2×</small></button></div><div class="credit">MADE FOR YOUR NEXT MASTERPIECE <span>✳</span></div></div>
+      </aside>
+    </section>
+    <button class="mobile-toggle" id="mobileToggle">✎ 编辑涂装</button>
+  </main>
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+  <script type="module" src="app.js?v=20261028grad"></script>
+</body>
+</html>

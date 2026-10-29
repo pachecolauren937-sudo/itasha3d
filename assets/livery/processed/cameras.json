@@ -1,0 +1,261 @@
+{
+  "cameras": {
+    "left": {
+      "intrinsics_px": [
+        [
+          2792.0384351407,
+          0.0,
+          846.16
+        ],
+        [
+          0.0,
+          2792.0384351407,
+          358.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rotation_matrix_world_to_camera": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "translation_camera": [
+        0.0,
+        0.34,
+        8.0
+      ],
+      "camera_position_world": [
+        -8.0,
+        0.34,
+        0.0
+      ],
+      "camera_distance_m": 8.0,
+      "focal_px": 2792.0384351407,
+      "source_dimensions_px": [
+        1673,
+        485
+      ],
+      "fit_method": "front/rear wheel-centre affine datum; 2.914 m model wheelbase; artwork shifted forward 0.020 wheelbases",
+      "wheel_arch_centres_px": {
+        "rear": [
+          358.0,
+          355.0
+        ],
+        "front": [
+          1375.0,
+          361.0
+        ]
+      },
+      "wheelbase_px": 1017.0,
+      "artwork_forward_shift_wheelbases": 0.02,
+      "artwork_extent_wheelbases": [
+        1.32,
+        0.18
+      ]
+    },
+    "right": {
+      "intrinsics_px": [
+        [
+          3453.671928620453,
+          0.0,
+          1017.16
+        ],
+        [
+          0.0,
+          3453.671928620453,
+          441.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rotation_matrix_world_to_camera": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          -1.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "translation_camera": [
+        0.0,
+        0.34,
+        8.0
+      ],
+      "camera_position_world": [
+        8.0,
+        0.34,
+        0.0
+      ],
+      "camera_distance_m": 8.0,
+      "focal_px": 3453.671928620453,
+      "source_dimensions_px": [
+        2072,
+        600
+      ],
+      "fit_method": "front/rear wheel-centre affine datum; 2.914 m model wheelbase; artwork shifted forward 0.020 wheelbases",
+      "wheel_arch_centres_px": {
+        "rear": [
+          1621.0,
+          439.0
+        ],
+        "front": [
+          363.0,
+          443.0
+        ]
+      },
+      "wheelbase_px": 1258.0,
+      "artwork_forward_shift_wheelbases": 0.02,
+      "artwork_extent_wheelbases": [
+        0.18,
+        1.33
+      ]
+    },
+    "hood": {
+      "intrinsics_px": [
+        [
+          3553.38740202162,
+          0.0,
+          668.5
+        ],
+        [
+          0.0,
+          3553.38740202162,
+          450.84000000000003
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rotation_matrix_world_to_camera": [
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          -0.0,
+          -0.9328848788794741,
+          0.36017468367172734
+        ],
+        [
+          0.0,
+          -0.36017468367172734,
+          -0.9328848788794741
+        ]
+      ],
+      "translation_camera": [
+        0.0,
+        0.09734450910046721,
+        8.077160642611238
+      ],
+      "camera_position_world": [
+        0.0,
+        3.0,
+        7.5
+      ],
+      "camera_distance_m": 6.163675851308211,
+      "focal_px": 3553.38740202162,
+      "source_dimensions_px": [
+        1337,
+        884
+      ],
+      "fit_method": "end-on lamp/body-width registration; wheel arches not visible",
+      "wheel_arch_centres_px": null,
+      "wheelbase_px": null,
+      "artwork_extent_wheelbases": null
+    },
+    "rear": {
+      "intrinsics_px": [
+        [
+          3152.6262639117267,
+          0.0,
+          645.5
+        ],
+        [
+          0.0,
+          3152.6262639117267,
+          454.41
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "rotation_matrix_world_to_camera": [
+        [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        [
+          -0.0,
+          -0.910687727767048,
+          -0.4130954641417538
+        ],
+        [
+          0.0,
+          -0.4130954641417538,
+          0.910687727767048
+        ]
+      ],
+      "translation_camera": [
+        0.0,
+        -0.15960506569113253,
+        7.614100486794598
+      ],
+      "camera_position_world": [
+        0.0,
+        3.0,
+        -7.0
+      ],
+      "camera_distance_m": 5.325645500782041,
+      "focal_px": 3152.6262639117267,
+      "source_dimensions_px": [
+        1291,
+        891
+      ],
+      "fit_method": "end-on lamp/body-width registration; wheel arches not visible",
+      "wheel_arch_centres_px": null,
+      "wheelbase_px": null,
+      "artwork_extent_wheelbases": null
+    }
+  },
+  "textures": {
+    "left": "left.png",
+    "right": "right.png",
+    "hood": "hood.png",
+    "rear": "rear.png"
+  },
+  "alignment": "semantic part mapping; side photographs calibrated to axle centres"
+}

@@ -1,0 +1,10 @@
+# 备用模型（仅保留运行时使用的 taycan_f.glb）
+assets/taycan_raw.glb
+assets/taycan_hi.glb
+assets/car.glb
+
+# 临时与缓存
+.DS_Store
+*.log
+__pycache__/
+utils/__pycache__/
