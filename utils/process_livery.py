@@ -83,58 +83,45 @@ def paint_mask(name, image, carmask):
         alpha[533:668,500:871]=0
         rgba=cv2.cvtColor(image,cv2.COLOR_BGR2BGRA); rgba[:,:,3]=alpha
         return rgba
-    # Side masks are spatial masks of the photographed body. Every RGB value
-    # inside the body survives, including printed white and the pale-blue ramp.
+    # Side source images are the finished design. Keep every source pixel on
+    # the car body silhouette, including broad fills, gradients, characters,
+    # lettering, and pale line work. Only glazing and the wheel/tyre openings
+    # are removed from the projection matte.
     if name in ('left','right'):
         def poly_mask(points):
-            pts = np.array([[(round(x*(w-1)),round(y*(h-1))) for x,y in points]],np.int32)
-            m = np.zeros((h,w),np.uint8); cv2.fillPoly(m,pts,255); return m
-        # Clamp to the photographed car silhouette. Side glass is part of the
-        # show-car wrap surface, so the envelope spans from the roof/glazing
-        # edge through the rocker line; only wheels and plate are cut out.
+            pts=np.array([[(round(x*(w-1)),round(y*(h-1))) for x,y in points]],np.int32)
+            m=np.zeros((h,w),np.uint8); cv2.fillPoly(m,pts,255); return m
         outlines = {
           'left': [(0,.31),(.055,.30),(.10,.26),(.14,.18),(.22,.10),(.32,.04),(.42,.005),(.53,.005),(.62,.025),(.69,.08),(.75,.17),(.79,.27),(.84,.30),(.94,.32),(1,.39),(1,.59),(.98,.67),(.96,.73),(.94,.83),(.92,.86),(.86,.865),(.76,.86),(.72,.84),(.61,.86),(.30,.86),(.27,.84),(.26,.72),(.235,.66),(.21,.64),(.19,.65),(.17,.71),(.17,.86),(.09,.86),(.065,.84),(.05,.80),(.03,.75),(0,.70)],
           'right': [(0,.39),(.055,.35),(.11,.32),(.18,.30),(.25,.29),(.30,.26),(.34,.20),(.38,.14),(.43,.08),(.48,.035),(.56,.025),(.64,.035),(.71,.09),(.76,.17),(.79,.25),(.84,.30),(.91,.33),(.97,.37),(1,.40),(1,.61),(.99,.68),(.975,.74),(.96,.80),(.94,.825),(.89,.83),(.84,.84),(.80,.83),(.78,.81),(.77,.76),(.76,.71),(.74,.67),(.71,.65),(.68,.66),(.66,.71),(.65,.79),(.64,.84),(.54,.84),(.50,.83),(.45,.84),(.32,.835),(.27,.825),(.25,.80),(.245,.74),(.23,.70),(.21,.68),(.19,.68),(.17,.72),(.16,.80),(.15,.835),(.07,.82),(.05,.78),(.03,.71),(0,.67)]
         }[name]
-        # The hand-traced envelope is the body-region mask. Do not intersect
-        # it with GrabCut: GrabCut treats thin, pale-blue print on white paint
-        # as background and removes the front-fender line-work.
-        keep = poly_mask(outlines)
-        # Exclude the full visible tyre and wheel disc, with an approximately
-        # 12 px margin. Rectangles intentionally cover the photographed tyre
-        # shoulder and all spokes; this alpha is only for artwork projection.
-        # Pixel bounds below enclose the ellipse after its safety margin.
+        alpha=poly_mask(outlines)
         wheel_masks = ([(360,353,175,145),(1375,362,180,145)] if name=='left'
                        else [(345,445,200,145),(1530,442,160,145)])
+        exclusions=[]
         for x,y,rx,ry in wheel_masks:
-            cv2.ellipse(keep,(x,y),(rx,ry),0,0,360,0,-1)
-        # The right photo's clean white nose ends just before the front arch;
-        # leave that whole base-coat area transparent so the shader gradient
-        # remains visible there.
+            cv2.ellipse(alpha,(x,y),(rx,ry),0,0,360,0,-1)
+            exclusions.append(('ellipse',(x,y,rx,ry)))
+        def region(points):
+            m=np.zeros((h,w),np.uint8); cv2.fillPoly(m,[np.asarray(points,np.int32)],255); return m
         if name == 'right':
-            keep[:, :145] = 0
+            glass=np.maximum(
+                region([(605,101),(775,49),(938,27),(1057,35),(1101,59),(1094,161),(1002,174),(831,181),(695,174),(590,145)]),
+                region([(1090,57),(1170,37),(1328,32),(1466,62),(1567,103),(1553,145),(1481,160),(1322,169),(1171,169),(1092,160)])
+            )
         else:
-            keep[:, 1530:] = 0
-        # The lower black rocker and photographed plate are not body artwork.
-        if name == 'left':
-            rocker = [(0,.855),(.17,.855),(.29,.858),(.34,.852),(.42,.861),(.59,.864),(.75,.862),(.87,.853),(1,.850),(1,1),(0,1)]
-            plates = [[(.946,.46),(.987,.46),(.987,.58),(.946,.58)]]
-        else:
-            rocker = [(0,.824),(.18,.825),(.32,.834),(.48,.837),(.64,.837),(.78,.838),(.91,.831),(1,.820),(1,1),(0,1)]
-            plates = [[(.004,.40),(.055,.40),(.055,.55),(.004,.55)]]
-        keep[poly_mask(rocker)>0] = 0
-        for p in plates: keep[poly_mask(p)>0] = 0
-        # Keep the photographed window areas in the printable envelope; only
-        # the source taillamp is an exclusion in this band.
-        if name == 'left':
-            tail_lamp = [(0,135),(116,132),(155,152),(157,180),(116,194),(0,188)]
-        else:
-            tail_lamp = [(1930,174),(2071,173),(2071,228),(1954,234),(1928,211)]
-        # The client wraps the side glazing as part of the continuous print.
-        # Keep its local artwork strokes in the same alpha layer as the doors;
-        # the runtime lays opaque printed film over an opaque dark tint.
-        cv2.fillPoly(keep, [np.asarray(tail_lamp,np.int32)], 0)
-        alpha = keep
+            glass=np.maximum(
+                region([(386,82),(494,48),(648,29),(796,32),(861,52),(868,147),(778,160),(620,159),(485,145),(397,119)]),
+                region([(860,52),(935,34),(1034,35),(1113,57),(1182,87),(1144,125),(1056,143),(948,151),(870,146)])
+            )
+        alpha[glass>0]=0
+        # Smooth only the car silhouette; then reassert all physical cutouts.
+        alpha=cv2.GaussianBlur(alpha,(3,3),.45)
+        alpha[glass>0]=0
+        for x,y,rx,ry in wheel_masks:
+            cv2.ellipse(alpha,(x,y),(rx,ry),0,0,360,0,-1)
+        rgba=cv2.cvtColor(image,cv2.COLOR_BGR2BGRA); rgba[:,:,3]=alpha
+        return rgba
     else:
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         chroma = np.clip((hsv[:,:,1].astype(np.float32)-40)/75,0,1)

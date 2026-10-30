@@ -295,110 +295,6 @@ function clearProjectedDecals(restoreGlass = true) {
   if (restoreGlass) for (const [mesh, material] of glassSourceMaterials) mesh.material = material;
 }
 
-function makePerspectiveOverlayMaterial(texture, side) {
-  const params = projectionCameras?.[side];
-  if (!params) return null;
-  const K = params.intrinsics_px, R = params.rotation_matrix_world_to_camera, t = params.translation_camera;
-  const groundOffset = Math.max(0, -carBounds?.min.y || 0);
-  const uniforms = {
-    uCamR: { value: new THREE.Matrix3().set(R[0][0],R[0][1],R[0][2],R[1][0],R[1][1],R[1][2],R[2][0],R[2][1],R[2][2]) },
-    uCamT: { value: new THREE.Vector3(t[0]-R[0][1]*groundOffset,t[1]-R[1][1]*groundOffset,t[2]-R[2][1]*groundOffset) },
-    uIntrinsics: { value: new THREE.Vector4(K[0][0],K[1][1],K[0][2],K[1][2]) },
-    uImageSize: { value: new THREE.Vector2(params.source_dimensions_px[0],params.source_dimensions_px[1]) },
-    uLiveryTransform: { value: new THREE.Vector4(1,0,0,0) }
-  };
-  const updateTransform = () => uniforms.uLiveryTransform.value.set(
-    Math.max(.05,state.scale), state.x * .035, state.y * .035,
-    THREE.MathUtils.degToRad(state.rotation)
-  );
-  updateTransform();
-  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 1,
-    depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4,
-    side: THREE.DoubleSide, toneMapped: false });
-  material.onBeforeCompile = shader => {
-    Object.assign(shader.uniforms, uniforms);
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vSharedLiveryCameraPosition; uniform mat3 uCamR; uniform vec3 uCamT;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 decalWorldPosition = modelMatrix * vec4(transformed,1.0); vSharedLiveryCameraPosition = uCamR * decalWorldPosition.xyz + uCamT;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vSharedLiveryCameraPosition; uniform vec4 uIntrinsics; uniform vec2 uImageSize; uniform vec4 uLiveryTransform;')
-      .replace('#include <map_fragment>', `
-        #ifdef USE_MAP
-          float pz = vSharedLiveryCameraPosition.z;
-          vec2 pixel = vec2(uIntrinsics.x*vSharedLiveryCameraPosition.x + uIntrinsics.z*pz,
-                            uIntrinsics.y*vSharedLiveryCameraPosition.y + uIntrinsics.w*pz) / max(pz,0.0001);
-          vec2 puv = pixel / uImageSize;
-          puv.y = 1.0 - puv.y;
-          float cs = cos(uLiveryTransform.w), sn = sin(uLiveryTransform.w);
-          puv = (mat2(cs,-sn,sn,cs) * (puv - 0.5) / uLiveryTransform.x) + 0.5 - uLiveryTransform.yz;
-          if (pz > 0.0 && puv.x >= 0.0 && puv.x <= 1.0 && puv.y >= 0.0 && puv.y <= 1.0) {
-            vec4 projectedColor = texture2D(map,puv);
-            diffuseColor *= projectedColor;
-          } else { diffuseColor.a = 0.0; }
-        #else
-          diffuseColor.a = 0.0;
-        #endif
-      `);
-  };
-  material.customProgramCacheKey = () => `shared-perspective-wrap-${side}`;
-  material.userData.updateLiveryTransform = updateTransform;
-  return material;
-}
-
-function buildSharedSideWrap(side) {
-  clearProjectedDecals(false);
-  const sign = side === 'left' ? -1 : 1;
-  const orientation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), new THREE.Vector3(sign,0,0));
-  const pos = new THREE.Vector3(0, .82, 0);
-  // One 3D projection volume is reused for every exterior target. Texture
-  // lookup remains the calibrated source-camera projection, so both panels
-  // get identical coordinates where their boundaries meet.
-  const volume = new THREE.Vector3(5.25, 1.72, 2.4);
-  const euler = new THREE.Euler().setFromQuaternion(orientation, 'XYZ');
-  const glassTinted = new Set();
-  const targets = [];
-  carRoot.updateMatrixWorld(true);
-  carRoot.traverse(o => {
-    if (!o.isMesh) return;
-    const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
-    const names = mats.map(m => (m?.name || '').toLowerCase());
-    const isPaint = names.includes('corpus1');
-    const isGlass = names.some(n => n === 'glass2' || n === 'black_glass1');
-    if (!isPaint && !isGlass) return;
-    targets.push({ mesh:o, isPaint, isGlass, materialName:mats.map(m=>m.name).join(',') });
-  });
-  const tex = projectedTexture;
-  for (const { mesh, isGlass } of targets) {
-    if (isGlass && !glassTinted.has(mesh)) {
-      const originals = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      const tinted = originals.map(m => {
-        const clone = m.clone();
-        clone.color.set(0x09131f);
-        clone.transparent = false; clone.opacity = 1; clone.depthWrite = true;
-        clone.roughness = .32; clone.metalness = .12; clone.needsUpdate = true;
-        return clone;
-      });
-      mesh.material = Array.isArray(mesh.material) ? tinted : tinted[0];
-      glassTinted.add(mesh);
-    }
-    const geometry = new DecalGeometry(mesh, pos, euler, volume);
-    if (!geometry.attributes.position?.count) { geometry.dispose(); continue; }
-    const material = makePerspectiveOverlayMaterial(tex, side);
-    if (!material) { geometry.dispose(); continue; }
-    const decal = new THREE.Mesh(geometry, material);
-    decal.renderOrder = 4;
-    decal.name = `shared-wrap-${side}-${mesh.name || 'mesh'}-${materialNameFor(mesh)}`;
-    scene.add(decal); projectedDecalMeshes.push(decal);
-  }
-  window.__wrapDebug = { side, targetMeshes: targets.map(t => ({name:t.mesh.name, material:t.materialName, paintedShell:t.isPaint, glazing:t.isGlass})),
-    decalMeshes: projectedDecalMeshes.map(m=>({name:m.name, vertices:m.geometry.attributes.position.count})),
-    sharedProjector: { position:pos.toArray(), orientation:orientation.toArray(), size:volume.toArray() } };
-}
-function materialNameFor(mesh) {
-  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-  return mats.map(m=>m?.name || 'unnamed').join('-');
-}
-
 function applyProjectedPreset(side, img) {
   clearProjectedDecals(true);
   if (projectedTexture) projectedTexture.dispose();
@@ -407,9 +303,22 @@ function applyProjectedPreset(side, img) {
   projectedSide = side;
   if (side === 'left' || side === 'right') {
     if (projectedMaterial) { bodyMesh.material = sourceBodyMaterial; projectedMaterial = null; }
-    if (sourceBodyMaterial) bodyMesh.material = sourceBodyMaterial;
-    buildSharedSideWrap(side);
-    window.__projectDebug = { side, targets: window.__wrapDebug?.targetMeshes };
+    // Side artwork is projected onto the painted body shell only. The two
+    // glazing meshes are deliberately excluded from the target set.
+    const glassNames = new Set(['mesh_2', 'mesh_2_2']);
+    const targetNames = [bodyMesh.name];
+    const targets = [];
+    carRoot.traverse(mesh => {
+      if (mesh.isMesh && targetNames.includes(mesh.name) && !glassNames.has(mesh.name)) targets.push(mesh);
+    });
+    const material = targets.includes(bodyMesh) ? makeProjectedMaterial(projectedTexture, side) : null;
+    if (material) {
+      bodyMesh.material = material; projectedMaterial = material;
+      window.__projectDebug = { side, params: projectionCameras?.[side], body: bodyMesh.name,
+        method: 'calibrated-camera-on-painted-shell', targets: targets.map(mesh => mesh.name),
+        excludedGlazing: ['mesh_2', 'mesh_2_2'], sourceAspect: img.naturalWidth / img.naturalHeight };
+    }
+    if (decalMesh) { scene.remove(decalMesh); decalMesh.geometry.dispose(); decalMesh.material.dispose(); decalMesh = null; }
     buildDecal();
     return;
   }
@@ -442,6 +351,19 @@ function applyProjectedPreset(side, img) {
 
 function flyToSide(side) {
   if (!carBounds) return;
+  if (shotSide === side && projectionCameras?.[side]?.focal_px && (side === 'left' || side === 'right')) {
+    const params = projectionCameras[side];
+    const groundOffset = Math.max(0, -carBounds.min.y || 0);
+    const p = params.camera_position_world;
+    const target = new THREE.Vector3(0, p[1] + groundOffset, 0);
+    orbit.target.copy(target);
+    camera.position.set(p[0], p[1] + groundOffset, p[2]);
+    camera.up.set(0, 1, 0);
+    camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(params.source_dimensions_px[1] / (2 * params.intrinsics_px[1][1])));
+    camera.aspect = params.source_dimensions_px[0] / params.source_dimensions_px[1];
+    camera.updateProjectionMatrix(); orbit.update();
+    return;
+  }
   const size = carBounds.getSize(new THREE.Vector3());
   const cy = (carBounds.min.y + carBounds.max.y) / 2;
   const d = Math.max(size.x, size.z) * 2.05 * (shotSide && side === 'hood' ? .68 : shotSide && side === 'rear' ? .42 : 1);
@@ -487,4 +409,19 @@ document.querySelector('#closePanel').addEventListener('click', () => document.q
 function resize() { const w = viewport.clientWidth, h = viewport.clientHeight; if (!w || !h) return; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); }
 new ResizeObserver(resize).observe(viewport); resize();
 if (!shotSide) renderer.setAnimationLoop(() => { orbit.update(); renderer.render(scene, camera); });
-if (shotSide) await shotReady;
+if (shotSide) {
+  await shotReady;
+  const query = new URLSearchParams(location.search);
+  const outWidth = Number(query.get('width')) || projectionCameras?.[state.side]?.source_dimensions_px?.[0];
+  const outHeight = Number(query.get('height')) || projectionCameras?.[state.side]?.source_dimensions_px?.[1];
+  if (outWidth && outHeight) {
+    renderer.setPixelRatio(1); camera.aspect = outWidth / outHeight;
+    camera.updateProjectionMatrix(); renderer.setSize(outWidth, outHeight, false);
+    if (query.get('mode') === 'base') bodyMesh.material = sourceBodyMaterial;
+    renderer.render(scene, camera);
+    if (query.has('capture')) renderer.domElement.toBlob(blob => {
+      const a = document.createElement('a'); a.download = query.get('capture');
+      a.href = URL.createObjectURL(blob); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }, 'image/png');
+  }
+}
